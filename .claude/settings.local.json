@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"D:/Project/novelPage\" && npx create-next-app@latest frontend --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm 2>&1 | tail -5)",
+      "Bash(cd \"D:/Project/novelPage\" && echo \"N\" | npx create-next-app@latest frontend --typescript --tailwind --eslint --app --src-dir --no-import-alias --use-npm 2>&1 | tail -10)",
+      "Bash(cd \"D:/Project/novelPage\" && npx @nestjs/cli new backend --package-manager npm --skip-git --strict 2>&1 | tail -10)",
+      "Bash(cd \"D:/Project/novelPage/backend\" && npx tsc --noEmit 2>&1 | head -20)",
+      "Bash(find /d/Project/AInovelPage/backend/src -type f -name \"*.ts\" 2>/dev/null | grep -v node_modules | sort)",
+      "Bash(curl -s http://localhost:4000/api/novels/ranking | head -c 500)",
+      "Bash(curl -s http://localhost:4000/api/novels | head -c 500)",
+      "Bash(curl -s http://localhost:3000 | head -c 2000)",
+      "Bash(curl -s \"http://localhost:4000/api/novels/ranking?genre=로맨스\" | head -c 300)"
+    ]
+  }
+}

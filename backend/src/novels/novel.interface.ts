@@ -5,7 +5,7 @@ export interface Novel {
   genre: string;
   tags: string[];
   description: string;
-  coverImage: string;
+  coverImage?: string;
   rating: number;
   likes: number;
   interests: number;

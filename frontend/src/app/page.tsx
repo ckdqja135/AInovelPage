@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { fetchNovels, fetchRanking, type Novel, type RankingItem } from "@/lib/api";
+import { useEffect, useState, useCallback } from "react";
+import { type Novel, type RankingItem } from "@/lib/api";
 
 const GENRE_TABS = ["통합랭킹", "로맨스", "판타지", "무협", "SF", "미스터리"];
 
@@ -51,30 +51,40 @@ function CoverPlaceholder({ title }: { title: string }) {
   );
 }
 
+async function fetchData(genre?: string) {
+  const query = genre ? `?genre=${encodeURIComponent(genre)}` : "";
+  try {
+    const [novelsRes, rankingRes] = await Promise.all([
+      fetch(`http://localhost:4000/api/novels${query}`),
+      fetch(`http://localhost:4000/api/novels/ranking${query}`),
+    ]);
+    const novels = novelsRes.ok ? await novelsRes.json() : [];
+    const ranking = rankingRes.ok ? await rankingRes.json() : [];
+    return { novels, ranking };
+  } catch (e) {
+    console.error("API fetch failed:", e);
+    return { novels: [], ranking: [] };
+  }
+}
+
 export default function HomePage() {
   const [novels, setNovels] = useState<Novel[]>([]);
   const [ranking, setRanking] = useState<RankingItem[]>([]);
   const [activeGenre, setActiveGenre] = useState("통합랭킹");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
+  const loadData = useCallback(async (genre: string) => {
+    setLoading(true);
+    const genreParam = genre === "통합랭킹" ? undefined : genre;
+    const data = await fetchData(genreParam);
+    setNovels(data.novels);
+    setRanking(data.ranking);
+    setLoading(false);
   }, []);
 
-  async function loadData() {
-    try {
-      const [novelsData, rankingData] = await Promise.all([
-        fetchNovels().catch(() => []),
-        fetchRanking().catch(() => []),
-      ]);
-      setNovels(novelsData);
-      setRanking(rankingData);
-    } catch {
-      // Use mock data for display
-    } finally {
-      setLoading(false);
-    }
-  }
+  useEffect(() => {
+    loadData(activeGenre);
+  }, [activeGenre, loadData]);
 
   // Use ranking data if available, otherwise generate from novels
   const displayItems: RankingItem[] =

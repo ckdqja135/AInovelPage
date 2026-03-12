@@ -11,8 +11,8 @@ export class NovelsController {
   }
 
   @Get('ranking')
-  findRanking() {
-    return this.novelsService.findRanking();
+  findRanking(@Query('genre') genre?: string) {
+    return this.novelsService.findRanking(genre);
   }
 
   @Get(':id')
