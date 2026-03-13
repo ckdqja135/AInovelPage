@@ -1,9 +1,13 @@
 import { Controller, Get, Post, Param, Query, ParseIntPipe, NotFoundException } from '@nestjs/common';
 import { NovelsService } from './novels.service';
+import { DailyEpisodeService } from './daily-episode.service';
 
 @Controller('api/novels')
 export class NovelsController {
-  constructor(private readonly novelsService: NovelsService) {}
+  constructor(
+    private readonly novelsService: NovelsService,
+    private readonly dailyEpisodeService: DailyEpisodeService,
+  ) {}
 
   @Get()
   findAll(@Query('genre') genre?: string) {
@@ -14,6 +18,25 @@ export class NovelsController {
   findRanking(@Query('genre') genre?: string) {
     return this.novelsService.findRanking(genre);
   }
+
+  // === 일일 연재 스케줄 API (must be before :id routes) ===
+
+  @Get('schedule/status')
+  getScheduleStatus() {
+    return this.dailyEpisodeService.getScheduleStatus();
+  }
+
+  @Get('schedule/log')
+  getPublishLog() {
+    return this.dailyEpisodeService.getPublishLog();
+  }
+
+  @Post('schedule/publish-now')
+  publishNow() {
+    return this.dailyEpisodeService.publishAllEpisodes();
+  }
+
+  // === Novel CRUD ===
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {

@@ -91,3 +91,40 @@ export async function generateEpisode(
   }
   return res.json();
 }
+
+// === 일일 연재 스케줄 API ===
+
+export interface ScheduleStatus {
+  schedule: string;
+  mode: string;
+  totalNovels: number;
+  novelStatus: {
+    novelId: number;
+    title: string;
+    genre: string;
+    currentEpisodes: number;
+    totalEpisodes: number;
+    latestEpisodeDate: string | null;
+  }[];
+  recentPublications: {
+    novelId: number;
+    novelTitle: string;
+    episodeNumber: number;
+    episodeId: number;
+    publishedAt: string;
+  }[];
+}
+
+export async function fetchScheduleStatus(): Promise<ScheduleStatus> {
+  return fetchAPI<ScheduleStatus>('/api/novels/schedule/status');
+}
+
+export async function publishNow(): Promise<Episode[]> {
+  const res = await fetch(`${BASE_URL}/api/novels/schedule/publish-now`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}

@@ -51,6 +51,27 @@ function CoverPlaceholder({ title }: { title: string }) {
   );
 }
 
+interface ScheduleInfo {
+  schedule: string;
+  mode: string;
+  totalNovels: number;
+  novelStatus: {
+    novelId: number;
+    title: string;
+    genre: string;
+    currentEpisodes: number;
+    totalEpisodes: number;
+    latestEpisodeDate: string | null;
+  }[];
+  recentPublications: {
+    novelId: number;
+    novelTitle: string;
+    episodeNumber: number;
+    episodeId: number;
+    publishedAt: string;
+  }[];
+}
+
 async function fetchData(genre?: string) {
   const query = genre ? `?genre=${encodeURIComponent(genre)}` : "";
   try {
@@ -67,11 +88,23 @@ async function fetchData(genre?: string) {
   }
 }
 
+async function fetchSchedule(): Promise<ScheduleInfo | null> {
+  try {
+    const res = await fetch("http://localhost:4000/api/novels/schedule/status");
+    if (res.ok) return res.json();
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default function HomePage() {
   const [novels, setNovels] = useState<Novel[]>([]);
   const [ranking, setRanking] = useState<RankingItem[]>([]);
   const [activeGenre, setActiveGenre] = useState("통합랭킹");
   const [loading, setLoading] = useState(true);
+  const [schedule, setSchedule] = useState<ScheduleInfo | null>(null);
+  const [publishing, setPublishing] = useState(false);
 
   const loadData = useCallback(async (genre: string) => {
     setLoading(true);
@@ -82,9 +115,33 @@ export default function HomePage() {
     setLoading(false);
   }, []);
 
+  const loadSchedule = useCallback(async () => {
+    const data = await fetchSchedule();
+    setSchedule(data);
+  }, []);
+
   useEffect(() => {
     loadData(activeGenre);
-  }, [activeGenre, loadData]);
+    loadSchedule();
+  }, [activeGenre, loadData, loadSchedule]);
+
+  const handlePublishNow = async () => {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      const res = await fetch("http://localhost:4000/api/novels/schedule/publish-now", {
+        method: "POST",
+      });
+      if (res.ok) {
+        await loadData(activeGenre);
+        await loadSchedule();
+      }
+    } catch (e) {
+      console.error("Publish failed:", e);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   // Use ranking data if available, otherwise generate from novels
   const displayItems: RankingItem[] =
@@ -156,6 +213,67 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Daily Episode Schedule Section */}
+      {schedule && (
+        <section className="max-w-[1200px] mx-auto px-4 pt-8 pb-4">
+          <div className="bg-gradient-to-r from-primary/5 to-emerald-50 border border-primary/20 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                  일일 자동 연재
+                </h2>
+                <p className="text-xs text-text-secondary mt-1">
+                  매일 자정, 모든 소설에 새로운 에피소드가 자동으로 연재됩니다
+                </p>
+              </div>
+              <button
+                onClick={handlePublishNow}
+                disabled={publishing}
+                className="px-4 py-2 bg-primary hover:bg-primary-dark text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {publishing ? "연재 중..." : "지금 연재하기"}
+              </button>
+            </div>
+
+            {/* Recent Publications */}
+            {schedule.recentPublications.length > 0 && (
+              <div>
+                <h3 className="text-sm font-medium text-text-light mb-2">최근 연재 기록</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {schedule.recentPublications.slice(0, 6).map((pub) => (
+                    <Link
+                      key={`${pub.novelId}-${pub.episodeId}`}
+                      href={`/novel/${pub.novelId}`}
+                      className="flex items-center gap-2 p-2 bg-white rounded-lg hover:shadow-sm transition-shadow"
+                    >
+                      <span className="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium">
+                        NEW
+                      </span>
+                      <span className="text-sm text-foreground truncate flex-1">
+                        {pub.novelTitle}
+                      </span>
+                      <span className="text-xs text-text-secondary shrink-0">
+                        {pub.episodeNumber}화
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Novel Status Overview */}
+            <div className="mt-4 pt-4 border-t border-primary/10">
+              <div className="flex items-center gap-4 text-xs text-text-secondary">
+                <span>등록 작품: <strong className="text-foreground">{schedule.totalNovels}개</strong></span>
+                <span>연재 주기: <strong className="text-foreground">매일 자정</strong></span>
+                <span>총 연재 기록: <strong className="text-foreground">{schedule.recentPublications.length}회</strong></span>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Ranking Section */}
       <section className="max-w-[1200px] mx-auto px-4 py-8">

@@ -9,7 +9,9 @@
       "Bash(curl -s http://localhost:4000/api/novels/ranking | head -c 500)",
       "Bash(curl -s http://localhost:4000/api/novels | head -c 500)",
       "Bash(curl -s http://localhost:3000 | head -c 2000)",
-      "Bash(curl -s \"http://localhost:4000/api/novels/ranking?genre=로맨스\" | head -c 300)"
+      "Bash(curl -s \"http://localhost:4000/api/novels/ranking?genre=로맨스\" | head -c 300)",
+      "Bash(cd D:/Project/AInovelPage/backend && npm install @nestjs/schedule)",
+      "Bash(cd D:/Project/AInovelPage/backend && npx nest build 2>&1)"
     ]
   }
 }

@@ -394,6 +394,7 @@ export class NovelsService {
       comments: 0,
       views: 0,
       createdAt: new Date().toISOString().split('T')[0],
+      isNew: true,
     };
 
     this.episodes.push(newEpisode);

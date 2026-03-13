@@ -26,6 +26,7 @@ export interface Episode {
   comments: number;
   views: number;
   createdAt: string;
+  isNew?: boolean;
 }
 
 export interface RankingNovel extends Novel {
