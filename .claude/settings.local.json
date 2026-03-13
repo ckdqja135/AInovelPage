@@ -11,7 +11,9 @@
       "Bash(curl -s http://localhost:3000 | head -c 2000)",
       "Bash(curl -s \"http://localhost:4000/api/novels/ranking?genre=로맨스\" | head -c 300)",
       "Bash(cd D:/Project/AInovelPage/backend && npm install @nestjs/schedule)",
-      "Bash(cd D:/Project/AInovelPage/backend && npx nest build 2>&1)"
+      "Bash(cd D:/Project/AInovelPage/backend && npx nest build 2>&1)",
+      "Bash(cd \"D:\\\\Project\\\\AInovelPage\\\\backend\" && npx tsc --noEmit 2>&1 | head -40)",
+      "Bash(cd \"D:\\\\Project\\\\AInovelPage\\\\frontend\" && npx tsc --noEmit 2>&1 | head -40)"
     ]
   }
 }

@@ -33,3 +33,23 @@ export interface RankingNovel extends Novel {
   rank: number;
   rankChange: 'up' | 'down' | 'new' | 'same';
 }
+
+export interface Comment {
+  id: number;
+  episodeId: number;
+  novelId: number;
+  userId: string;
+  nickname: string;
+  content: string;
+  createdAt: string;
+  likes: number;
+}
+
+export interface UserAction {
+  userId: string;
+  likedNovels: number[];
+  interestedNovels: number[];
+  bookmarkedEpisodes: { novelId: number; episodeId: number }[];
+  readingHistory: { novelId: number; episodeId: number; readAt: string }[];
+  genrePreferences: string[];
+}

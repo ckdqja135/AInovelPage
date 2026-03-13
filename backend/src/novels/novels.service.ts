@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Novel, Episode, RankingNovel } from './novel.interface';
+import { Novel, Episode, RankingNovel, Comment, UserAction } from './novel.interface';
 
 @Injectable()
 export class NovelsService {
@@ -262,19 +262,230 @@ export class NovelsService {
   ];
 
   private episodes: Episode[] = [];
+  private comments: Comment[] = [];
+  private userActions: Map<string, UserAction> = new Map();
+  private commentIdCounter = 1;
 
   constructor() {
     this.generateMockEpisodes();
+    this.generateMockComments();
   }
 
-  private generateMockEpisodes() {
+  // ==================== User Actions ====================
 
-    // Generate episodes for all novels
+  private getUserAction(userId: string): UserAction {
+    if (!this.userActions.has(userId)) {
+      this.userActions.set(userId, {
+        userId,
+        likedNovels: [],
+        interestedNovels: [],
+        bookmarkedEpisodes: [],
+        readingHistory: [],
+        genrePreferences: [],
+      });
+    }
+    return this.userActions.get(userId)!;
+  }
+
+  toggleLike(userId: string, novelId: number): { liked: boolean; totalLikes: number } {
+    const action = this.getUserAction(userId);
+    const novel = this.findOne(novelId);
+    if (!novel) throw new Error('Novel not found');
+
+    const idx = action.likedNovels.indexOf(novelId);
+    if (idx === -1) {
+      action.likedNovels.push(novelId);
+      novel.likes++;
+      return { liked: true, totalLikes: novel.likes };
+    } else {
+      action.likedNovels.splice(idx, 1);
+      novel.likes = Math.max(0, novel.likes - 1);
+      return { liked: false, totalLikes: novel.likes };
+    }
+  }
+
+  toggleInterest(userId: string, novelId: number): { interested: boolean; totalInterests: number } {
+    const action = this.getUserAction(userId);
+    const novel = this.findOne(novelId);
+    if (!novel) throw new Error('Novel not found');
+
+    const idx = action.interestedNovels.indexOf(novelId);
+    if (idx === -1) {
+      action.interestedNovels.push(novelId);
+      novel.interests++;
+      return { interested: true, totalInterests: novel.interests };
+    } else {
+      action.interestedNovels.splice(idx, 1);
+      novel.interests = Math.max(0, novel.interests - 1);
+      return { interested: false, totalInterests: novel.interests };
+    }
+  }
+
+  toggleBookmark(userId: string, novelId: number, episodeId: number): { bookmarked: boolean } {
+    const action = this.getUserAction(userId);
+    const idx = action.bookmarkedEpisodes.findIndex(
+      b => b.novelId === novelId && b.episodeId === episodeId,
+    );
+    if (idx === -1) {
+      action.bookmarkedEpisodes.push({ novelId, episodeId });
+      return { bookmarked: true };
+    } else {
+      action.bookmarkedEpisodes.splice(idx, 1);
+      return { bookmarked: false };
+    }
+  }
+
+  addReadingHistory(userId: string, novelId: number, episodeId: number) {
+    const action = this.getUserAction(userId);
+    // Remove if already exists
+    action.readingHistory = action.readingHistory.filter(
+      r => !(r.novelId === novelId && r.episodeId === episodeId),
+    );
+    action.readingHistory.unshift({
+      novelId,
+      episodeId,
+      readAt: new Date().toISOString(),
+    });
+    // Keep last 100
+    if (action.readingHistory.length > 100) {
+      action.readingHistory = action.readingHistory.slice(0, 100);
+    }
+  }
+
+  setGenrePreferences(userId: string, genres: string[]) {
+    const action = this.getUserAction(userId);
+    action.genrePreferences = genres;
+  }
+
+  getUserProfile(userId: string) {
+    const action = this.getUserAction(userId);
+
+    const likedNovels = action.likedNovels
+      .map(id => this.findOne(id))
+      .filter(Boolean) as Novel[];
+
+    const interestedNovels = action.interestedNovels
+      .map(id => this.findOne(id))
+      .filter(Boolean) as Novel[];
+
+    const bookmarks = action.bookmarkedEpisodes.map(b => {
+      const novel = this.findOne(b.novelId);
+      const episode = this.findEpisode(b.novelId, b.episodeId);
+      return { novel, episode };
+    }).filter(b => b.novel && b.episode);
+
+    const history = action.readingHistory.slice(0, 20).map(h => {
+      const novel = this.findOne(h.novelId);
+      const episode = this.findEpisode(h.novelId, h.episodeId);
+      return { novel, episode, readAt: h.readAt };
+    }).filter(h => h.novel && h.episode);
+
+    return {
+      userId,
+      likedNovels,
+      interestedNovels,
+      bookmarks,
+      readingHistory: history,
+      genrePreferences: action.genrePreferences,
+    };
+  }
+
+  getUserNovelStatus(userId: string, novelId: number) {
+    const action = this.getUserAction(userId);
+    return {
+      liked: action.likedNovels.includes(novelId),
+      interested: action.interestedNovels.includes(novelId),
+    };
+  }
+
+  getUserEpisodeStatus(userId: string, novelId: number, episodeId: number) {
+    const action = this.getUserAction(userId);
+    return {
+      bookmarked: action.bookmarkedEpisodes.some(
+        b => b.novelId === novelId && b.episodeId === episodeId,
+      ),
+    };
+  }
+
+  // ==================== Search ====================
+
+  search(query: string): { novels: Novel[]; totalResults: number } {
+    const q = query.toLowerCase().trim();
+    if (!q) return { novels: [], totalResults: 0 };
+
+    const results = this.novels.filter(novel =>
+      novel.title.toLowerCase().includes(q) ||
+      novel.author.toLowerCase().includes(q) ||
+      novel.tags.some(tag => tag.toLowerCase().includes(q)) ||
+      novel.description.toLowerCase().includes(q) ||
+      novel.genre.toLowerCase().includes(q)
+    );
+
+    return { novels: results, totalResults: results.length };
+  }
+
+  // ==================== Comments ====================
+
+  getComments(episodeId: number): Comment[] {
+    return this.comments
+      .filter(c => c.episodeId === episodeId)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  addComment(novelId: number, episodeId: number, userId: string, nickname: string, content: string): Comment {
+    const comment: Comment = {
+      id: this.commentIdCounter++,
+      episodeId,
+      novelId,
+      userId,
+      nickname,
+      content,
+      createdAt: new Date().toISOString(),
+      likes: 0,
+    };
+    this.comments.push(comment);
+
+    // Update novel comment count
+    const novel = this.findOne(novelId);
+    if (novel) novel.comments++;
+
+    // Update episode comment count
+    const episode = this.episodes.find(e => e.id === episodeId);
+    if (episode) episode.comments++;
+
+    return comment;
+  }
+
+  deleteComment(commentId: number, userId: string): boolean {
+    const idx = this.comments.findIndex(c => c.id === commentId && c.userId === userId);
+    if (idx === -1) return false;
+
+    const comment = this.comments[idx];
+    this.comments.splice(idx, 1);
+
+    const novel = this.findOne(comment.novelId);
+    if (novel) novel.comments = Math.max(0, novel.comments - 1);
+
+    const episode = this.episodes.find(e => e.id === comment.episodeId);
+    if (episode) episode.comments = Math.max(0, episode.comments - 1);
+
+    return true;
+  }
+
+  likeComment(commentId: number): { likes: number } | null {
+    const comment = this.comments.find(c => c.id === commentId);
+    if (!comment) return null;
+    comment.likes++;
+    return { likes: comment.likes };
+  }
+
+  // ==================== Novel CRUD ====================
+
+  private generateMockEpisodes() {
     for (const novel of this.novels) {
       const episodeCount = Math.min(novel.totalEpisodes, 8);
       for (let i = 1; i <= episodeCount; i++) {
         const content = this.generateGenericContent(novel, i);
-
         this.episodes.push({
           id: (novel.id - 1) * 200 + i,
           novelId: novel.id,
@@ -286,6 +497,50 @@ export class NovelsService {
           views: Math.floor(Math.random() * 10000) + 1000,
           createdAt: this.getEpisodeDate(novel.createdAt, i),
         });
+      }
+    }
+  }
+
+  private generateMockComments() {
+    const nicknames = ['소설매니아', '밤새독서', '달빛독자', '책벌레99', '웹소설중독', '이야기사냥꾼', '활자중독', '몰입러', '정주행러', '새벽독서'];
+    const commentTexts = [
+      '작가님 진짜 천재... 이 전개 소름 돋았어요',
+      '다음 화가 너무 기다려집니다ㅠㅠ',
+      '이 부분에서 울었어요 ㅜㅜ',
+      '역대급 반전이었다... 와...',
+      '주인공 너무 좋아 ㅎㅎ',
+      '오늘도 정주행 완료!',
+      '이 소설 발견한 게 올해 최고의 행운',
+      '작가님 건강 챙기시면서 연재해주세요!',
+      '이 캐릭터 너무 매력적이에요',
+      '와 이 복선 회수 미쳤다',
+      '재밌게 잘 읽고 있습니다!',
+      '이야기가 점점 더 좋아지네요',
+    ];
+
+    // Add some mock comments to first few episodes of each novel
+    for (const novel of this.novels) {
+      const episodes = this.episodes.filter(e => e.novelId === novel.id);
+      for (const ep of episodes.slice(0, 3)) {
+        const numComments = Math.floor(Math.random() * 4) + 1;
+        for (let i = 0; i < numComments; i++) {
+          const nickname = nicknames[Math.floor(Math.random() * nicknames.length)];
+          const text = commentTexts[Math.floor(Math.random() * commentTexts.length)];
+          const daysAgo = Math.floor(Math.random() * 30);
+          const date = new Date();
+          date.setDate(date.getDate() - daysAgo);
+
+          this.comments.push({
+            id: this.commentIdCounter++,
+            episodeId: ep.id,
+            novelId: novel.id,
+            userId: `mock-user-${i}`,
+            nickname,
+            content: text,
+            createdAt: date.toISOString(),
+            likes: Math.floor(Math.random() * 20),
+          });
+        }
       }
     }
   }
@@ -385,7 +640,7 @@ export class NovelsService {
       : 1;
 
     const newEpisode: Episode = {
-      id: Date.now(),
+      id: Date.now() + Math.floor(Math.random() * 1000),
       novelId,
       episodeNumber: nextEpNum,
       title: `${nextEpNum}화. AI가 생성한 새로운 이야기`,

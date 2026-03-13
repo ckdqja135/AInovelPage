@@ -76,8 +76,8 @@ async function fetchData(genre?: string) {
   const query = genre ? `?genre=${encodeURIComponent(genre)}` : "";
   try {
     const [novelsRes, rankingRes] = await Promise.all([
-      fetch(`http://localhost:4000/api/novels${query}`),
-      fetch(`http://localhost:4000/api/novels/ranking${query}`),
+      fetch(`/api/novels${query}`, { cache: "no-store" }),
+      fetch(`/api/novels/ranking${query}`, { cache: "no-store" }),
     ]);
     const novels = novelsRes.ok ? await novelsRes.json() : [];
     const ranking = rankingRes.ok ? await rankingRes.json() : [];
@@ -90,7 +90,7 @@ async function fetchData(genre?: string) {
 
 async function fetchSchedule(): Promise<ScheduleInfo | null> {
   try {
-    const res = await fetch("http://localhost:4000/api/novels/schedule/status");
+    const res = await fetch("/api/novels/schedule/status", { cache: "no-store" });
     if (res.ok) return res.json();
     return null;
   } catch {
@@ -129,7 +129,7 @@ export default function HomePage() {
     if (publishing) return;
     setPublishing(true);
     try {
-      const res = await fetch("http://localhost:4000/api/novels/schedule/publish-now", {
+      const res = await fetch("/api/novels/schedule/publish-now", {
         method: "POST",
       });
       if (res.ok) {
